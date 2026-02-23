@@ -47,8 +47,14 @@ def check_command_exists(cmd):
 
 def install_nvm_and_node():
     """安装 nvm 和 Node.js"""
-    print("\n=== 安装 nvm 和 Node.js ===")
+    print("\n=== 检查 Node.js ===")
 
+    if check_command_exists("node"):
+        run_command("node -v")
+        print("[跳过] Node.js 已存在，跳过 nvm 和 pnpm 安装")
+        return False
+
+    print("[安装] Node.js 不存在，开始安装 nvm 和 Node.js")
     nvm_dir = Path.home() / ".nvm"
 
     if nvm_dir.exists():
@@ -77,6 +83,10 @@ def install_nvm_and_node():
 def install_pnpm():
     """安装 pnpm"""
     print("\n=== 安装 pnpm ===")
+
+    if check_command_exists("node"):
+        print("[跳过] 使用系统 Node.js，跳过 pnpm")
+        return False
 
     if check_command_exists("pnpm"):
         print("[跳过] pnpm 已安装")
