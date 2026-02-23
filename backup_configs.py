@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """备份所有 AI 配置到仓库"""
 
-import os
 import re
 import shutil
 from pathlib import Path

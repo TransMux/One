@@ -9,13 +9,26 @@ import sys
 from pathlib import Path
 
 API_KEY_PLACEHOLDER = "YOUR_API_KEY_HERE"
+CACHE_FILE = Path.home() / ".ccb_cache" / "api_key.txt"
 
 
 def get_api_key():
-    """获取用户输入的 API key"""
+    """获取用户输入的 API key，优先从缓存读取"""
+    # 尝试从缓存读取
+    if CACHE_FILE.exists():
+        cached_key = CACHE_FILE.read_text().strip()
+        if cached_key and cached_key.startswith("sk-"):
+            print(f"[缓存] 使用已保存的 API key")
+            return cached_key
+
+    # 缓存不存在，要求用户输入
     while True:
         api_key = input("\n请输入你的 OpenAI API Key (sk-xxx): ").strip()
         if api_key and api_key.startswith("sk-"):
+            # 保存到缓存
+            CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            CACHE_FILE.write_text(api_key)
+            print(f"[保存] API key 已保存到 {CACHE_FILE}")
             return api_key
         print("[错误] 无效的 API key 格式，请重新输入")
 
@@ -68,16 +81,20 @@ def install_pnpm():
     if check_command_exists("pnpm"):
         print("[跳过] pnpm 已安装")
         run_command("pnpm -v")
-        return True
+    else:
+        run_command("corepack enable pnpm")
 
-    run_command("corepack enable pnpm")
-    return check_command_exists("pnpm")
+    # 运行 pnpm setup
+    print("\n=== 运行 pnpm setup ===")
+    run_command("pnpm setup")
+    return True
 
 
 def install_ai_tools():
     """安装所有 AI 工具"""
     print("\n=== 安装 AI 工具 ===")
 
+    registry = "--registry=https://registry.npmmirror.com"
     tools = [
         ("@google/gemini-cli", "gemini"),
         ("@anthropic-ai/claude-code", "claude"),
@@ -90,7 +107,7 @@ def install_ai_tools():
             print(f"[跳过] {cmd_name} 已安装")
         else:
             print(f"\n[安装] {package}")
-            run_command(f"pnpm install -g {package}")
+            run_command(f"npm i -g {package} {registry}")
 
 
 def copy_ai_configs(api_key):
@@ -100,6 +117,18 @@ def copy_ai_configs(api_key):
     repo_dir = Path(__file__).parent
     config_dir = repo_dir / "config"
     home = Path.home()
+
+    # 创建/更新 ~/.claude.json 跳过 onboarding
+    claude_json = home / ".claude.json"
+    if claude_json.exists():
+        import json
+        data = json.loads(claude_json.read_text())
+        data["hasCompletedOnboarding"] = True
+        claude_json.write_text(json.dumps(data, indent=2))
+        print(f"[更新] {claude_json}")
+    else:
+        claude_json.write_text('{\n  "hasCompletedOnboarding": true\n}\n')
+        print(f"[创建] {claude_json}")
 
     if not config_dir.exists():
         print(f"[提示] 配置目录不存在: {config_dir}")
@@ -152,14 +181,64 @@ def install_ccb():
 
     if ccb_dir.exists():
         print(f"[跳过] CCB 已安装: {ccb_dir}")
-        return True
+    else:
+        run_command(
+            f"git clone https://github.com/bfly123/claude_code_bridge.git {ccb_dir}"
+        )
+        run_command(f"cd {ccb_dir} && ./install.sh install")
 
-    run_command(
-        f"git clone https://github.com/bfly123/claude_code_bridge.git {ccb_dir}"
-    )
-    run_command(f"cd {ccb_dir} && ./install.sh install")
+    # 添加 ccb 别名到 bashrc
+    bashrc = Path.home() / ".bashrc"
+    zshrc = Path.home() / ".zshrc"
+    function_content = '''# CCB - 在 tmux 中运行 ccb
+c() {
+    if [ -z "$TMUX" ]; then
+        tmux new-session -A -s ccb "ccb -a"
+    else
+        ccb -a
+    fi
+}
+'''
+
+    for rc_file in [bashrc, zshrc]:
+        if rc_file.exists():
+            content = rc_file.read_text()
+            if "# CCB - 在 tmux 中运行 ccb" not in content:
+                with open(rc_file, "a") as f:
+                    f.write(f"\n{function_content}")
+                print(f"[添加] 函数到 {rc_file.name}")
 
     return True
+
+
+def install_tmux():
+    """安装 tmux"""
+    print("\n=== 安装 tmux ===")
+
+    if check_command_exists("tmux"):
+        print("[跳过] tmux 已安装")
+        return True
+
+    # macOS
+    if run_command("which brew", check=False):
+        run_command("brew install tmux")
+    # Linux
+    else:
+        run_command("sudo apt-get install -y tmux || sudo yum install -y tmux")
+
+    return True
+
+
+def ask_open_tmux():
+    """询问是否打开 tmux"""
+    while True:
+        answer = input("\n是否在当前目录打开 tmux? (y/n): ").strip().lower()
+        if answer in ["y", "yes"]:
+            run_command("tmux")
+            break
+        elif answer in ["n", "no"]:
+            break
+        print("[提示] 请输入 y 或 n")
 
 
 def main():
@@ -176,7 +255,24 @@ def main():
         ("安装 AI 工具", install_ai_tools),
         ("复制 AI 配置", lambda: copy_ai_configs(api_key)),
         ("安装 CCB", install_ccb),
+        ("安装 tmux", install_tmux),
     ]
+
+    for name, func in steps:
+        try:
+            func()
+        except Exception as e:
+            print(f"[错误] {name} 失败: {e}")
+            sys.exit(1)
+
+    print("\n" + "=" * 50)
+    print("[完成] CCB 配置完成!")
+    print("=" * 50)
+    print("\n[提示] 请运行 'source ~/.bashrc' 或 'source ~/.zshrc' 使别名生效")
+    print("[提示] 使用 'c' 命令代替 'ccb -a'")
+
+    # 询问是否打开 tmux
+    ask_open_tmux()
 
     for name, func in steps:
         try:
