@@ -156,21 +156,26 @@ def copy_ai_configs(api_key):
 
         dst.parent.mkdir(parents=True, exist_ok=True)
 
+        # 删除已存在的文件/目录
         if dst.exists():
-            print(f"[存在] {dst}")
-        else:
-            if src.is_dir():
-                shutil.copytree(src, dst, dirs_exist_ok=True)
-                print(f"[复制] {src.relative_to(config_dir)} -> {dst}")
+            if dst.is_dir():
+                shutil.rmtree(dst)
             else:
-                # 复制并替换 API key 占位符
-                content = src.read_text()
-                msg = f"[复制] {src.relative_to(config_dir)} -> {dst}"
-                if API_KEY_PLACEHOLDER in content:
-                    content = content.replace(API_KEY_PLACEHOLDER, api_key)
-                    msg += " (已替换 API key)"
-                dst.write_text(content)
-                print(msg)
+                dst.unlink()
+
+        # 复制文件
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+            print(f"[复制] {src.relative_to(config_dir)} -> {dst}")
+        else:
+            # 复制并替换 API key 占位符
+            content = src.read_text()
+            msg = f"[复制] {src.relative_to(config_dir)} -> {dst}"
+            if API_KEY_PLACEHOLDER in content:
+                content = content.replace(API_KEY_PLACEHOLDER, api_key)
+                msg += " (已替换 API key)"
+            dst.write_text(content)
+            print(msg)
 
 
 def install_ccb():
@@ -217,14 +222,25 @@ def install_tmux():
 
     if check_command_exists("tmux"):
         print("[跳过] tmux 已安装")
-        return True
-
-    # macOS
-    if run_command("which brew", check=False):
-        run_command("brew install tmux")
-    # Linux
     else:
-        run_command("sudo apt-get install -y tmux || sudo yum install -y tmux")
+        # macOS
+        if run_command("which brew", check=False):
+            run_command("brew install tmux")
+        # Linux
+        else:
+            run_command("sudo apt-get install -y tmux || sudo yum install -y tmux")
+
+    # 修复 ~/.bash_aliases 中的 cd 问题
+    bash_aliases = Path.home() / ".bash_aliases"
+    if bash_aliases.exists():
+        content = bash_aliases.read_text()
+        old_line = '[[ "$TERM_PROGRAM" != "vscode" ]] && cd "$ARNOLD_CMD_DIR"'
+        new_line = '[[ "$TERM_PROGRAM" != "vscode" && -z "$TMUX" ]] && cd "$ARNOLD_CMD_DIR"'
+
+        if old_line in content:
+            content = content.replace(old_line, new_line)
+            bash_aliases.write_text(content)
+            print(f"[修复] {bash_aliases} - 跳过 tmux 会话的自动 cd")
 
     return True
 
