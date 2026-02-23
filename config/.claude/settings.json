@@ -1,7 +1,7 @@
 {
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
-    "ANTHROPIC_BASE_URL": "https://reverse.transmux.top",
+    "ANTHROPIC_BASE_URL": "http://101.200.159.41",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "permissions": {
