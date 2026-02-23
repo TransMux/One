@@ -1,0 +1,70 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+    "ANTHROPIC_BASE_URL": "https://reverse.transmux.top",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|Read|Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f .sparv/state.yaml ] && ${SKILL_PATH}/scripts/save-progress.sh \"${TOOL_NAME:-unknown}\" \"completed\" 2>/dev/null || true"
+          }
+        ],
+        "__module__": "sparv"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f .sparv/state.yaml ] && ${SKILL_PATH}/scripts/check-ehrb.sh --diff --dry-run 2>/dev/null || true"
+          }
+        ],
+        "__module__": "sparv"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f .sparv/state.yaml ] && ${SKILL_PATH}/scripts/reboot-test.sh --strict 2>/dev/null || true"
+          }
+        ],
+        "__module__": "sparv"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/eggtartking/.claude/skills/do/hooks/stop-hook.py"
+          }
+        ],
+        "__module__": "do"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "code-reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/eggtartking/.claude/skills/do/hooks/verify-loop.py"
+          }
+        ],
+        "__module__": "do"
+      }
+    ]
+  }
+}

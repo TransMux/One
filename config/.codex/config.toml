@@ -1,0 +1,30 @@
+model_provider = "cch"
+model = "gpt-5.2-codex"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "workspace-write"
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+web_search_request = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+
+[model_providers.cch]
+name = "cch"
+base_url = "https://reverse.transmux.top/v1"
+wire_api = "responses"
+requires_openai_auth = true
+
+[sandbox_workspace_write]
+network_access = true
+
+[projects."/Users/eggtartking/Projects/Mux/siyuan"]
+# --- BEGIN CCB: codex auto-approval ---
+trust_level = "trusted"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+# --- END CCB: codex auto-approval ---
