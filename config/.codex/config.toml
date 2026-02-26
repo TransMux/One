@@ -15,7 +15,7 @@ rmcp_client = true
 
 [model_providers.cch]
 name = "cch"
-base_url = "https://reverse.transmux.top/v1"
+base_url = "http://mux:23000/v1"
 wire_api = "responses"
 requires_openai_auth = true
 

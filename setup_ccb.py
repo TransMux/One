@@ -192,10 +192,11 @@ def install_ccb():
     """安装 CCB"""
     print("\n=== 安装 CCB ===")
 
-    ccb_dir = Path.home() / "projects" / "claude_code_bridge"
+    ccb_dir = Path.home() / ".claude_code_bridge"
 
     if ccb_dir.exists():
         print(f"[跳过] CCB 已安装: {ccb_dir}")
+        # TODO: 更新 CCB
     else:
         run_command(
             f"git clone https://github.com/bfly123/claude_code_bridge.git {ccb_dir}"
