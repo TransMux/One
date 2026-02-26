@@ -66,15 +66,26 @@ def install_nvm_and_node():
 
     nvm_sh = nvm_dir / "nvm.sh"
     if nvm_sh.exists():
-        run_command(f'\. "{nvm_sh}" && nvm install 24 && nvm use 24')
+        # 安装并设置 Node 24 为默认版本
+        run_command(
+            f'\. "{nvm_sh}" && nvm install 24 && nvm use 24 && nvm alias default 24'
+        )
+        # 立即更新当前 Python 进程的 PATH，使后续命令能找到 node
+        import glob
+        node_bins = glob.glob(str(nvm_dir / "versions" / "node" / "v24.*" / "bin"))
+        if node_bins:
+            # 将 nvm 的 node 路径添加到 PATH 前面
+            os.environ["PATH"] = f"{node_bins[0]}:{os.environ.get('PATH', '')}"
+            print(f"[环境] 已将 Node.js 路径添加到 PATH: {node_bins[0]}")
     else:
         print("[错误] nvm.sh 不存在")
         return False
 
     if check_command_exists("node"):
-        print("[跳过] Node.js 已安装")
+        node_version = subprocess.run("node -v", shell=True, capture_output=True, text=True).stdout.strip()
+        print(f"[成功] Node.js 已安装: {node_version}")
     else:
-        print("[提示] 请重启终端后继续")
+        print("[错误] Node.js 安装失败")
         return False
 
     return True
@@ -132,6 +143,7 @@ def copy_ai_configs(api_key):
     claude_json = home / ".claude.json"
     if claude_json.exists():
         import json
+
         data = json.loads(claude_json.read_text())
         data["hasCompletedOnboarding"] = True
         claude_json.write_text(json.dumps(data, indent=2))
@@ -149,11 +161,9 @@ def copy_ai_configs(api_key):
     config_mappings = [
         # Claude Code
         (config_dir / ".claude" / "settings.json", home / ".claude" / "settings.json"),
-
         # Gemini CLI
         (config_dir / ".gemini" / ".env", home / ".gemini" / ".env"),
         (config_dir / ".gemini" / "settings.json", home / ".gemini" / "settings.json"),
-
         # Codex CLI
         (config_dir / ".codex" / "config.toml", home / ".codex" / "config.toml"),
         (config_dir / ".codex" / "auth.json", home / ".codex" / "auth.json"),
@@ -195,8 +205,23 @@ def install_ccb():
     ccb_dir = Path.home() / ".claude_code_bridge"
 
     if ccb_dir.exists():
-        print(f"[跳过] CCB 已安装: {ccb_dir}")
-        # TODO: 更新 CCB
+        print(f"[更新] CCB 已存在，尝试更新: {ccb_dir}")
+        try:
+            result = subprocess.run(
+                "git -C {} pull".format(ccb_dir),
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0 and "Already up to date" not in result.stdout:
+                print(f"[更新] CCB 已更新")
+                run_command(f"cd {ccb_dir} && ./install.sh install")
+            elif result.returncode != 0:
+                print(f"[警告] CCB 更新失败: {result.stderr}")
+            else:
+                print(f"[跳过] CCB 已是最新版本")
+        except Exception as e:
+            print(f"[跳过] CCB 更新失败: {e}")
     else:
         run_command(
             f"git clone https://github.com/bfly123/claude_code_bridge.git {ccb_dir}"
@@ -206,7 +231,7 @@ def install_ccb():
     # 添加 ccb 别名到 bashrc
     bashrc = Path.home() / ".bashrc"
     zshrc = Path.home() / ".zshrc"
-    function_content = '''# CCB - 在 tmux 中运行 ccb
+    function_content = """# CCB - 在 tmux 中运行 ccb
 c() {
     if [ -z "$TMUX" ]; then
         tmux new-session -A -s ccb "ccb -a"
@@ -214,7 +239,7 @@ c() {
         ccb -a
     fi
 }
-'''
+"""
 
     for rc_file in [bashrc, zshrc]:
         if rc_file.exists():
@@ -246,7 +271,9 @@ def install_tmux():
     if bash_aliases.exists():
         content = bash_aliases.read_text()
         old_line = '[[ "$TERM_PROGRAM" != "vscode" ]] && cd "$ARNOLD_CMD_DIR"'
-        new_line = '[[ "$TERM_PROGRAM" != "vscode" && -z "$TMUX" ]] && cd "$ARNOLD_CMD_DIR"'
+        new_line = (
+            '[[ "$TERM_PROGRAM" != "vscode" && -z "$TMUX" ]] && cd "$ARNOLD_CMD_DIR"'
+        )
 
         if old_line in content:
             content = content.replace(old_line, new_line)
