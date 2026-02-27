@@ -43,27 +43,6 @@
           }
         ],
         "__module__": "sparv"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Users/eggtartking/.claude/skills/do/hooks/stop-hook.py"
-          }
-        ],
-        "__module__": "do"
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "code-reviewer",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /Users/eggtartking/.claude/skills/do/hooks/verify-loop.py"
-          }
-        ],
-        "__module__": "do"
       }
     ]
   }
